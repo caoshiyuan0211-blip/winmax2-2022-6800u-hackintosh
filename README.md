@@ -28,7 +28,8 @@ that grew out of it.
 | Touchpad, touchscreen | ✅ VoodooI2C (touchscreen on a real GPIO interrupt, with a tap fix) |
 | Keyboard, Mac-style F-row, Fn+F10 screenshot | ✅ VoodooPS2 + SSDT |
 | Battery | ✅ SMCBatteryManager |
-| Fingerprint reader (CS9711) for `sudo` | ✅ own matcher + PAM module (convenience grade, not Touch ID) |
+| Fingerprint reader (CS9711) for sudo in Terminal | ✅ own matcher + PAM module (convenience grade, not Touch ID) |
+| Internal panel stays smooth with an NVIDIA eGPU monitor (NullMoth driver) | ✅ fixed: the kext enables the panel's vblank handlers |
 | OpenCore GUI, boot chime | ✅ chime on warm boot (see below) |
 
 ## What doesn't (yet)
@@ -38,8 +39,6 @@ that grew out of it.
 - **OpenCore boot chime on a cold boot** is silent (warm boot plays). DMA, codec state, GPIO and EC were ruled out.
 - **The second USB-C (USB4) port** shows no picture with a plain DP-alt monitor. It doesn't work on Linux or Windows
   either. DisplayPort over USB4 tunnels (DPIA) is not implemented.
-- With an NVIDIA eGPU driven by the community NullMoth driver, a monitor on the eGPU can make the internal panel
-  update at ~0.5 fps. There is a fix in the kext for this, but it hasn't been tested yet.
 
 ## How it works (short)
 
