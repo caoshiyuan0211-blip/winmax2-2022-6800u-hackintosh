@@ -1,0 +1,15 @@
+[Unit]
+Description=Install bare-metal OpenCore (efi) to /boot at shutdown
+# Stopped (= ExecStop runs) before /boot and /home are unmounted
+RequiresMountsFor=/boot @REPO@
+After=local-fs.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/true
+ExecStop=@REPO@/linux/oc-bm-on-shutdown.sh
+TimeoutStopSec=120
+
+[Install]
+WantedBy=multi-user.target

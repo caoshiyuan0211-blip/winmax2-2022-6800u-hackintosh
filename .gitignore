@@ -1,0 +1,12 @@
+*.o
+*.kext
+*.efi
+*.lib
+*.so
+fw/
+fw.tmp/
+build/
+roms/
+src/MacKernelSDK/
+src/Lilu-1.7.2/
+efi/EFI/
