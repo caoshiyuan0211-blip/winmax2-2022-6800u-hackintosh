@@ -887,8 +887,27 @@ static void scanKmods() {
 // not from the device-id property. In the VM QEMU's x-pci-device-id faked it; on bare metal
 // they see the real 1002:1681 and HWLibs rejects the device (ttl_initialize = 1, then the
 // "Failed to send PPLIB IRI to Accelerator" panic). Report 73ff like the VM did.
-static mach_vm_address_t orgPciRead16, orgPciRead32;
-static bool gDevidLogged;
+static mach_vm_address_t orgPciRead8, orgPciRead16, orgPciRead32;
+static bool gDevidLogged, gRevisionLogged;
+
+// 24H32's TTL checks both device ID and PCI revision before software init. This RedmiBook
+// reports revision 02, absent from Navi 23's table; its c7 row has the same capability payload
+// as the other Navi 23 rows. Keep the existing identity consistent across config-read widths.
+static uint32_t rembrandtPciRevision(void *dev, uint64_t off, uint32_t value) {
+	if (off != kIOPCIConfigRevisionID || (value & 0xFF) != 0x02)
+		return value;
+	auto read16 = reinterpret_cast<uint16_t (*)(void *, uint64_t)>(orgPciRead16);
+	if (read16(dev, kIOPCIConfigVendorID) != 0x1002 || read16(dev, kIOPCIConfigDeviceID) != 0x1681)
+		return value;
+	if (!gRevisionLogged)
+		gRevisionLogged = true, LOG("pcidevid: PCI revision 02 -> c7");
+	return (value & ~0xFFU) | 0xC7;
+}
+
+static uint8_t wrapPciRead8(void *dev, uint64_t off) {
+	auto value = FunctionCast(wrapPciRead8, orgPciRead8)(dev, off);
+	return rembrandtPciRevision(dev, off, value);
+}
 
 static uint16_t wrapPciRead16(void *dev, uint64_t off) {
 	auto v = FunctionCast(wrapPciRead16, orgPciRead16)(dev, off);
@@ -897,7 +916,7 @@ static uint16_t wrapPciRead16(void *dev, uint64_t off) {
 			gDevidLogged = true, LOG("pcidevid: config read16 1681 -> 73ff");
 		v = 0x73ff;
 	}
-	return v;
+	return rembrandtPciRevision(dev, off, v);
 }
 
 static uint32_t wrapPciRead32(void *dev, uint64_t off) {
@@ -907,7 +926,7 @@ static uint32_t wrapPciRead32(void *dev, uint64_t off) {
 			gDevidLogged = true, LOG("pcidevid: config read32 16811002 -> 73ff1002");
 		v = 0x73ff1002;
 	}
-	return v;
+	return rembrandtPciRevision(dev, off, v);
 }
 
 static void routePciDevid(KernelPatcher &patcher, size_t index, mach_vm_address_t address, size_t size) {
@@ -918,6 +937,7 @@ static void routePciDevid(KernelPatcher &patcher, size_t index, mach_vm_address_
 	KernelPatcher::RouteRequest reqs[] {
 		{"__ZN11IOPCIDevice20extendedConfigRead16Ey", wrapPciRead16, orgPciRead16},
 		{"__ZN11IOPCIDevice20extendedConfigRead32Ey", wrapPciRead32, orgPciRead32},
+		{"__ZN11IOPCIDevice19extendedConfigRead8Ey", wrapPciRead8, orgPciRead8},
 	};
 	if (patcher.routeMultiple(index, reqs, arrsize(reqs), address, size))
 		LOG("pcidevid: IOPCIDevice config reads routed");
