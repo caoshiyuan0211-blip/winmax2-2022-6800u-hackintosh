@@ -383,6 +383,13 @@ bool isDtoModulo(uint32_t hw) { return hw >= DpDto0Modulo && hw <= DpDto0Modulo 
 // much more often with 16 vCPUs (DRAM contention). Force SR disallowed (FORCE_ENABLE=1, VALUE=0),
 // as Linux does with disable_stutter. -rmbstutter keeps DAL's value.
 bool gKeepStutter;
+// Navi23 DAL's dcn30 SMU mailbox (msg 0x1628a / arg 0x16273 / resp 0x16274) has no PMFW behind it on
+// Rembrandt. After every S3 wake DAL sends GetSmuVersion (msg 2) and busy-polls resp twice (before + after
+// the send) until timeout: ~60k reads/s for ~6.4 s = the slow wake (found 11-15). Answer resp reads with
+// DALSMC_Result_Failed (0xFF): same outcome as the timeout (smu_present stays false), without the wait.
+// Never answer OK: DAL would then read the DPM table from a PMFW that doesn't exist. -rmbdalsmcwait = old.
+bool gDalSmcWait;
+constexpr uint32_t DalSmcResp = 0x16274, DalSmcFailed = 0xFF;
 constexpr uint32_t DramStateCntl = 0x39bc, SrForceEnable = 2, SrForceValue = 1;
 constexpr uint32_t DmcubInbox1Wptr = Seg2 + 0x1d6, DmcubInbox1Rptr = Seg2 + 0x1d7, DmcubCntl = Seg2 + 0x1f6,
 				   DmcubCntl2 = Seg2 + 0x200, DmcubScratch0 = Seg2 + 0x1e3, DmcubCw4OffLo = Seg2 + 0x1bd,
@@ -407,6 +414,8 @@ uint64_t wrapRead(uint64_t helper, uint64_t reg, uint64_t c, uint64_t d, uint64_
 			return gDalWptr;
 	}
 	uint32_t hw = remap(r, false);
+	if (!gDalSmcWait && hw == DalSmcResp)
+		return DalSmcFailed;
 	auxDalTouch(hw);
 	if (!gKeepPhyWrites && isPhyHole(hw)) {
 		static uint32_t logged;
@@ -3185,6 +3194,7 @@ void displayRoute(KernelPatcher &patcher, size_t index, mach_vm_address_t addres
 	gNoDet = checkKernelArgument("-rmbnodet");
 	gKeepDto = checkKernelArgument("-rmbdto");
 	gKeepStutter = checkKernelArgument("-rmbstutter");
+	gDalSmcWait = checkKernelArgument("-rmbdalsmcwait");
 	gKeepEdpOff = checkKernelArgument("-rmbedpoff");
 	gKeepEdpOffAlways = checkKernelArgument("-rmbedpoffkeep");
 	gKeepPllPd = checkKernelArgument("-rmbpllpd");

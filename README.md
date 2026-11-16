@@ -55,6 +55,8 @@ that grew out of it.
   retrains the eDP link after wake and revives the panel power sequencer.
 - **Sleep:** PSP teardown, GART save/restore, USB4 host-router sleep handshake (the firmware resets the machine if
   that is skipped).
+- **Fast wake:** Navi DAL polls a dcn30 SMU mailbox that has no firmware behind it on Rembrandt (~6.4 s timeout
+  on every wake). The kext answers it with "failed" right away, so the panel is back ~1 s after wake instead of ~8 s.
 - **Misc:** USB xHCI interrupter fix (Bluetooth was 1000x slow), disk kernel log at
   `/private/var/log/rmb-msgbuf.log`.
 
